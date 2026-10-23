@@ -1,0 +1,315 @@
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- 1. Bersihkan UI & ESP Lama
+pcall(function()
+    if CoreGui:FindFirstChild("DropsFarmUI") then
+        CoreGui.DropsFarmUI:Destroy()
+    end
+    if CoreGui:FindFirstChild("DropsESP") then
+        CoreGui.DropsESP:Destroy()
+    end
+end)
+
+-- Folder Kontainer ESP
+local espFolder = Instance.new("Folder")
+espFolder.Name = "DropsESP"
+espFolder.Parent = CoreGui
+
+-- ==========================================
+-- LOGIKA 1: ESP DENGAN HURUF BESAR & TEBAL
+-- ==========================================
+local function createESP(target)
+    if not target then return end
+    
+    local primaryPart = target:IsA("Model") and (target.PrimaryPart or target:FindFirstChildWhichIsA("BasePart", true)) or (target:IsA("BasePart") and target)
+    if not primaryPart then return end
+    if primaryPart:FindFirstChild("DropBillboardESP") then return end
+
+    local bbGui = Instance.new("BillboardGui")
+    bbGui.Name = "DropBillboardESP"
+    bbGui.Adornee = primaryPart
+    bbGui.AlwaysOnTop = true
+    bbGui.Size = UDim2.new(0, 250, 0, 70)
+    bbGui.StudsOffset = Vector3.new(0, 2, 0)
+    bbGui.Parent = primaryPart
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Font = Enum.Font.GothamBlack
+    textLabel.TextSize = 20
+    textLabel.TextColor3 = Color3.fromRGB(255, 215, 0) -- Gold
+    textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    textLabel.TextStrokeTransparency = 0
+    textLabel.TextYAlignment = Enum.TextYAlignment.Center
+    textLabel.Text = target.Name
+    textLabel.Parent = bbGui
+
+    local connection
+    connection = RunService.RenderStepped:Connect(function()
+        if not target or not target.Parent or not bbGui or not bbGui.Parent then
+            if connection then connection:Disconnect() end
+            return
+        end
+        
+        local character = LocalPlayer.Character
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local dist = math.floor((hrp.Position - primaryPart.Position).Magnitude)
+            textLabel.Text = string.format("📦 %s\n[%d m]", target.Name, dist)
+        else
+            textLabel.Text = "📦 " .. target.Name
+        end
+    end)
+end
+
+-- Auto Scan Folder Drops
+local function scanDrops()
+    local dropsFolder = Workspace:FindFirstChild("Drops")
+    if dropsFolder then
+        for _, item in ipairs(dropsFolder:GetChildren()) do
+            createESP(item)
+        end
+        
+        dropsFolder.ChildAdded:Connect(function(newItem)
+            task.wait(0.1)
+            createESP(newItem)
+        end)
+    end
+end
+scanDrops()
+
+-- Loop Pemantau Folder Drops
+task.spawn(function()
+    while task.wait(2) do
+        local dropsFolder = Workspace:FindFirstChild("Drops")
+        if dropsFolder then
+            for _, item in ipairs(dropsFolder:GetChildren()) do
+                createESP(item)
+            end
+        end
+    end
+end)
+
+-- ==========================================
+-- LOGIKA 2: GUI CONTROL (Black & Gold Mobile Theme)
+-- ==========================================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DropsFarmUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = CoreGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 220, 0, 160)
+mainFrame.Position = UDim2.new(0.05, 0, 0.15, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 20)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local cornerMain = Instance.new("UICorner")
+cornerMain.CornerRadius = UDim.new(0, 10)
+cornerMain.Parent = mainFrame
+
+local borderStroke = Instance.new("UIStroke")
+borderStroke.Color = Color3.fromRGB(212, 175, 55)
+borderStroke.Thickness = 1.5
+borderStroke.Parent = mainFrame
+
+-- Title Header
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -60, 0, 35)
+titleLabel.Position = UDim2.new(0, 12, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "SELL LEMON X THE HOLLOW"
+titleLabel.TextColor3 = Color3.fromRGB(240, 200, 80)
+titleLabel.TextSize = 13
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = mainFrame
+
+-- Minimize Button (-)
+local minButton = Instance.new("TextButton")
+minButton.Size = UDim2.new(0, 24, 0, 24)
+minButton.Position = UDim2.new(1, -54, 0, 5)
+minButton.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+minButton.Text = "-"
+minButton.TextColor3 = Color3.fromRGB(240, 200, 80)
+minButton.TextSize = 16
+minButton.Font = Enum.Font.GothamBold
+minButton.Parent = mainFrame
+
+local cornerMin = Instance.new("UICorner")
+cornerMin.CornerRadius = UDim.new(0, 6)
+cornerMin.Parent = minButton
+
+-- Close Button (X)
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 24, 0, 24)
+closeButton.Position = UDim2.new(1, -26, 0, 5)
+closeButton.BackgroundColor3 = Color3.fromRGB(45, 20, 25)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+closeButton.TextSize = 12
+closeButton.Font = Enum.Font.GothamBold
+closeButton.Parent = mainFrame
+
+local cornerClose = Instance.new("UICorner")
+cornerClose.CornerRadius = UDim.new(0, 6)
+cornerClose.Parent = closeButton
+
+-- Content Container
+local contentHolder = Instance.new("Frame")
+contentHolder.Size = UDim2.new(1, 0, 1, -35)
+contentHolder.Position = UDim2.new(0, 0, 0, 35)
+contentHolder.BackgroundTransparency = 1
+contentHolder.Parent = mainFrame
+
+-- Toggle Button FireTouchInterest Drops
+local farmButton = Instance.new("TextButton")
+farmButton.Size = UDim2.new(0.9, 0, 0, 42)
+farmButton.Position = UDim2.new(0.05, 0, 0.05, 0)
+farmButton.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+farmButton.Text = "AUTO FETCH: OFF"
+farmButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+farmButton.TextSize = 12
+farmButton.Font = Enum.Font.GothamBold
+farmButton.Parent = contentHolder
+
+local cornerAuto = Instance.new("UICorner")
+cornerAuto.CornerRadius = UDim.new(0, 8)
+cornerAuto.Parent = farmButton
+
+local strokeAuto = Instance.new("UIStroke")
+strokeAuto.Color = Color3.fromRGB(100, 100, 110)
+strokeAuto.Thickness = 1
+strokeAuto.Parent = farmButton
+
+-- Toggle Button Auto Sticker
+local stickerButton = Instance.new("TextButton")
+stickerButton.Size = UDim2.new(0.9, 0, 0, 42)
+stickerButton.Position = UDim2.new(0.05, 0, 0.55, 0)
+stickerButton.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+stickerButton.Text = "AUTO STICKER: OFF"
+stickerButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+stickerButton.TextSize = 12
+stickerButton.Font = Enum.Font.GothamBold
+stickerButton.Parent = contentHolder
+
+local cornerSticker = Instance.new("UICorner")
+cornerSticker.CornerRadius = UDim.new(0, 8)
+cornerSticker.Parent = stickerButton
+
+local strokeSticker = Instance.new("UIStroke")
+strokeSticker.Color = Color3.fromRGB(100, 100, 110)
+strokeSticker.Thickness = 1
+strokeSticker.Parent = stickerButton
+
+-- ==========================================
+-- LOGIKA 3: FIRETOUCHINTEREST AUTO COLLECT
+-- ==========================================
+local isFarmActive = false
+
+farmButton.MouseButton1Click:Connect(function()
+    isFarmActive = not isFarmActive
+
+    if isFarmActive then
+        farmButton.Text = "AUTO FETCH: ON"
+        farmButton.BackgroundColor3 = Color3.fromRGB(212, 175, 55)
+        farmButton.TextColor3 = Color3.fromRGB(15, 15, 18)
+        strokeAuto.Color = Color3.fromRGB(255, 220, 100)
+        
+        task.spawn(function()
+            while isFarmActive do
+                pcall(function()
+                    local dropsFolder = Workspace:FindFirstChild("Drops")
+                    local character = LocalPlayer.Character
+                    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+                    
+                    if dropsFolder and hrp then
+                        for _, item in ipairs(dropsFolder:GetChildren()) do
+                            if not isFarmActive then break end
+                            
+                            local part = nil
+                            if item:IsA("BasePart") then
+                                part = item
+                            elseif item:IsA("Model") then
+                                part = item.PrimaryPart or item:FindFirstChildWhichIsA("BasePart", true)
+                            end
+                            
+                            if part then
+                                firetouchinterest(hrp, part, 0)
+                                task.wait(0.05)
+                                firetouchinterest(hrp, part, 1)
+                            end
+                        end
+                    end
+                end)
+                task.wait(0.3)
+            end
+        end)
+    else
+        farmButton.Text = "AUTO FETCH: OFF"
+        farmButton.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+        farmButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+        strokeAuto.Color = Color3.fromRGB(100, 100, 110)
+    end
+end)
+
+-- ==========================================
+-- LOGIKA 4: AUTO STICKER
+-- ==========================================
+local isStickerActive = false
+
+stickerButton.MouseButton1Click:Connect(function()
+    isStickerActive = not isStickerActive
+
+    if isStickerActive then
+        stickerButton.Text = "AUTO STICKER: ON"
+        stickerButton.BackgroundColor3 = Color3.fromRGB(212, 175, 55)
+        stickerButton.TextColor3 = Color3.fromRGB(15, 15, 18)
+        strokeSticker.Color = Color3.fromRGB(255, 220, 100)
+        
+        task.spawn(function()
+            local args = {
+                "Halloween2026",
+                "Common"
+            }
+            
+            while isStickerActive do
+                pcall(function()
+                    ReplicatedStorage:WaitForChild("Core"):WaitForChild("RemoteRequest"):WaitForChild("PlayerStickers.PurchasePack"):InvokeServer(unpack(args))
+                end)
+                task.wait(0.5) -- Jeda antar request agar tidak terlalu memberatkan server / nge-lag
+            end
+        end)
+    else
+        stickerButton.Text = "AUTO STICKER: OFF"
+        stickerButton.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+        stickerButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+        strokeSticker.Color = Color3.fromRGB(100, 100, 110)
+    end
+end)
+
+-- Minimize & Close Actions
+local isMinimized = false
+minButton.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    contentHolder.Visible = not isMinimized
+    mainFrame.Size = isMinimized and UDim2.new(0, 220, 0, 35) or UDim2.new(0, 220, 0, 160)
+    minButton.Text = isMinimized and "+" or "-"
+end)
+
+closeButton.MouseButton1Click:Connect(function()
+    isFarmActive = false
+    isStickerActive = false
+    screenGui:Destroy()
+end)
