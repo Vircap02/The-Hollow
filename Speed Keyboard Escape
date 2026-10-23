@@ -1,0 +1,365 @@
+-- ==============================================================================
+-- AUTO COIN FARM + WALKSPEED + AUTO MARK POSITION (FULL SCRIPT)
+-- ==============================================================================
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+-- Target Folder
+local targetFolder = Workspace:FindFirstChild("EventCoinsLocal")
+
+-- Status Variable
+local autoFarmActive = false
+local currentSpeed = 16
+
+-- Target Teleport Position (Default)
+local targetPosition = Vector3.new(-1110.21, 297.81, 1464.90)
+
+--------------------------------------------------------------------------------
+-- 1. PEMBUATAN GUI (SCREEN GUI)
+--------------------------------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoCoinGui_MarkPos"
+screenGui.ResetOnSpawn = false
+
+-- Proteksi GUI (Support berbagai executor)
+if syn and syn.protect_gui then
+    syn.protect_gui(screenGui)
+    screenGui.Parent = CoreGui
+elseif gethui then
+    screenGui.Parent = gethui()
+else
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+end
+
+-- Main Frame (Ukuran diperbesar untuk menampung fitur penanda posisi)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 260, 0, 310)
+mainFrame.Position = UDim2.new(0.5, -130, 0.2, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = mainFrame
+
+-- Title Bar
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 35)
+titleBar.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 8)
+titleCorner.Parent = titleBar
+
+local titleCover = Instance.new("Frame")
+titleCover.Size = UDim2.new(1, 0, 0, 5)
+titleCover.Position = UDim2.new(0, 0, 1, -5)
+titleCover.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+titleCover.BorderSizePixel = 0
+titleCover.Parent = titleBar
+
+-- Title Text
+local titleText = Instance.new("TextLabel")
+titleText.Size = UDim2.new(1, -70, 1, 0)
+titleText.Position = UDim2.new(0, 10, 0, 0)
+titleText.BackgroundTransparency = 1
+titleText.Text = "Auto Touch Coins + Mark TP"
+titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleText.TextSize = 13
+titleText.Font = Enum.Font.GothamBold
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Parent = titleBar
+
+-- Close Button (X)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 25, 0, 25)
+closeBtn.Position = UDim2.new(1, -30, 0.5, -12)
+closeBtn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextSize = 12
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Parent = titleBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeBtn
+
+-- Minimize Button (-)
+local minBtn = Instance.new("TextButton")
+minBtn.Size = UDim2.new(0, 25, 0, 25)
+minBtn.Position = UDim2.new(1, -60, 0.5, -12)
+minBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+minBtn.Text = "-"
+minBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+minBtn.TextSize = 14
+minBtn.Font = Enum.Font.GothamBold
+minBtn.Parent = titleBar
+
+local minCorner = Instance.new("UICorner")
+minCorner.CornerRadius = UDim.new(0, 6)
+minCorner.Parent = minBtn
+
+-- Content Container
+local contentContainer = Instance.new("Frame")
+contentContainer.Name = "Content"
+contentContainer.Size = UDim2.new(1, 0, 1, -35)
+contentContainer.Position = UDim2.new(0, 0, 0, 35)
+contentContainer.BackgroundTransparency = 1
+contentContainer.Parent = mainFrame
+
+--------------------------------------------------------------------------------
+-- 2. ELEMEN KONTROL (TOGGLE, SLIDER, MARK & TELEPORT)
+--------------------------------------------------------------------------------
+
+-- Toggle Auto Touch Button
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 220, 0, 35)
+toggleBtn.Position = UDim2.new(0.5, -110, 0, 10)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+toggleBtn.Text = "Auto Touch: OFF"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.TextSize = 13
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.Parent = contentContainer
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 6)
+toggleCorner.Parent = toggleBtn
+
+-- WalkSpeed Slider Label
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0, 220, 0, 18)
+speedLabel.Position = UDim2.new(0.5, -110, 0, 52)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Text = "WalkSpeed: 16"
+speedLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+speedLabel.TextSize = 12
+speedLabel.Font = Enum.Font.GothamSemibold
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedLabel.Parent = contentContainer
+
+-- Slider Background
+local sliderFrame = Instance.new("Frame")
+sliderFrame.Name = "SliderBackground"
+sliderFrame.Size = UDim2.new(0, 220, 0, 10)
+sliderFrame.Position = UDim2.new(0.5, -110, 0, 75)
+sliderFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+sliderFrame.BorderSizePixel = 0
+sliderFrame.Parent = contentContainer
+
+local sliderCorner = Instance.new("UICorner")
+sliderCorner.CornerRadius = UDim.new(0, 5)
+sliderCorner.Parent = sliderFrame
+
+-- Slider Fill Bar
+local sliderFill = Instance.new("Frame")
+sliderFill.Name = "SliderFill"
+sliderFill.Size = UDim2.new(0, 0, 1, 0)
+sliderFill.BackgroundColor3 = Color3.fromRGB(70, 130, 240)
+sliderFill.BorderSizePixel = 0
+sliderFill.Parent = sliderFrame
+
+local fillCorner = Instance.new("UICorner")
+fillCorner.CornerRadius = UDim.new(0, 5)
+fillCorner.Parent = sliderFill
+
+-- Tombol Set/Tandai Posisi Saat Ini
+local markBtn = Instance.new("TextButton")
+markBtn.Size = UDim2.new(0, 220, 0, 32)
+markBtn.Position = UDim2.new(0.5, -110, 0, 95)
+markBtn.BackgroundColor3 = Color3.fromRGB(130, 80, 210)
+markBtn.Text = "📍 Tandai Posisi Saat Ini"
+markBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+markBtn.TextSize = 12
+markBtn.Font = Enum.Font.GothamBold
+markBtn.Parent = contentContainer
+
+local markCorner = Instance.new("UICorner")
+markCorner.CornerRadius = UDim.new(0, 6)
+markCorner.Parent = markBtn
+
+-- Label Teks Koordinat Ditandai
+local posLabel = Instance.new("TextLabel")
+posLabel.Size = UDim2.new(0, 220, 0, 20)
+posLabel.Position = UDim2.new(0.5, -110, 0, 132)
+posLabel.BackgroundTransparency = 1
+posLabel.Text = "Posisi: " .. string.format("%.1f, %.1f, %.1f", targetPosition.X, targetPosition.Y, targetPosition.Z)
+posLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+posLabel.TextSize = 11
+posLabel.Font = Enum.Font.Gotham
+posLabel.TextWrapped = true
+posLabel.Parent = contentContainer
+
+-- Teleport Button
+local tpBtn = Instance.new("TextButton")
+tpBtn.Size = UDim2.new(0, 220, 0, 35)
+tpBtn.Position = UDim2.new(0.5, -110, 0, 158)
+tpBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 240)
+tpBtn.Text = "🚀 TP ke Posisi Ditandai"
+tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpBtn.TextSize = 13
+tpBtn.Font = Enum.Font.GothamBold
+tpBtn.Parent = contentContainer
+
+local tpCorner = Instance.new("UICorner")
+tpCorner.CornerRadius = UDim.new(0, 6)
+tpCorner.Parent = tpBtn
+
+--------------------------------------------------------------------------------
+-- 3. LOGIKA SLIDER & WALKSPEED
+--------------------------------------------------------------------------------
+local minSpeed = 16
+local maxSpeed = 200
+local isDragging = false
+
+local function updateSpeed(input)
+    local sliderPos = sliderFrame.AbsolutePosition.X
+    local sliderSize = sliderFrame.AbsoluteSize.X
+    local mousePos = input.Position.X
+    
+    local relativePos = math.clamp((mousePos - sliderPos) / sliderSize, 0, 1)
+    currentSpeed = math.floor(minSpeed + relativePos * (maxSpeed - minSpeed))
+    
+    sliderFill.Size = UDim2.new(relativePos, 0, 1, 0)
+    speedLabel.Text = "WalkSpeed: " .. tostring(currentSpeed)
+end
+
+local initialScale = (currentSpeed - minSpeed) / (maxSpeed - minSpeed)
+sliderFill.Size = UDim2.new(initialScale, 0, 1, 0)
+
+sliderFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = true
+        updateSpeed(input)
+    end
+end)
+
+sliderFrame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateSpeed(input)
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = currentSpeed
+        end
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- 4. LOGIKA TOMBOL GUI (MARK, TP, MINIMIZE, CLOSE, TOGGLE)
+--------------------------------------------------------------------------------
+
+-- Tandai Posisi Saat Ini
+markBtn.MouseButton1Click:Connect(function()
+    local char = player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        targetPosition = char.HumanoidRootPart.Position
+        posLabel.Text = "Posisi: " .. string.format("%.1f, %.1f, %.1f", targetPosition.X, targetPosition.Y, targetPosition.Z)
+        
+        -- Efek Feedback Singkat pada Tombol
+        local origText = markBtn.Text
+        markBtn.Text = "✓ Posisi Tersimpan!"
+        task.delay(1, function()
+            markBtn.Text = origText
+        end)
+    end
+end)
+
+-- Teleport Event
+tpBtn.MouseButton1Click:Connect(function()
+    local char = player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.CFrame = CFrame.new(targetPosition)
+    end
+end)
+
+-- Minimize / Expand GUI
+local isMinimized = false
+minBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    contentContainer.Visible = not isMinimized
+    if isMinimized then
+        mainFrame.Size = UDim2.new(0, 260, 0, 35)
+        minBtn.Text = "+"
+    else
+        mainFrame.Size = UDim2.new(0, 260, 0, 310)
+        minBtn.Text = "-"
+    end
+end)
+
+-- Close GUI
+closeBtn.MouseButton1Click:Connect(function()
+    autoFarmActive = false
+    
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid then humanoid.WalkSpeed = 16 end
+    end
+    
+    screenGui:Destroy()
+end)
+
+-- Toggle Auto Touch
+toggleBtn.MouseButton1Click:Connect(function()
+    autoFarmActive = not autoFarmActive
+    if autoFarmActive then
+        toggleBtn.Text = "Auto Touch: ON"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+    else
+        toggleBtn.Text = "Auto Touch: OFF"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- 5. LOGIKA UTAMA: AUTO FIRETOUCHINTERESTS
+--------------------------------------------------------------------------------
+task.spawn(function()
+    while screenGui.Parent do
+        if autoFarmActive and targetFolder then
+            local currentCharacter = player.Character
+            if currentCharacter then
+                local currentRoot = currentCharacter:FindFirstChild("HumanoidRootPart")
+                if currentRoot then
+                    for _, coin in ipairs(targetFolder:GetChildren()) do
+                        local touchPart = coin:FindFirstChildWhichIsA("BasePart") or (coin:IsA("BasePart") and coin)
+                        if touchPart then
+                            pcall(function()
+                                firetouchinterest(currentRoot, touchPart, 0)
+                                task.wait()
+                                firetouchinterest(currentRoot, touchPart, 1)
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)
