@@ -1,0 +1,253 @@
+-- // Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- // Remotes
+local GameEvents = ReplicatedStorage:WaitForChild("GameEvents", 10)
+local SellRemote = GameEvents and GameEvents:WaitForChild("HalloweenEvent", 10) and GameEvents.HalloweenEvent:WaitForChild("HalloweenSellInventoryRE", 10)
+local BuyRemote = GameEvents and GameEvents:WaitForChild("BuyEventShopStock", 10)
+
+-- // Variable States
+local autoSellBuyEnabled = false
+local autoLoopThread = nil
+
+-- // Create ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "HalloweenAutoGUI"
+-- Proteksi GUI agar tidak mudah terdeteksi script lokal
+if syn and syn.protect_gui then
+    syn.protect_gui(ScreenGui)
+    ScreenGui.Parent = CoreGui
+elseif gethui then
+    ScreenGui.Parent = gethui()
+else
+    ScreenGui.Parent = CoreGui
+end
+
+-- // Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 300, 0, 180)
+MainFrame.Position = UDim2.new(0.5, -150, 0.4, -90)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+-- // Top Bar (Header)
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 35)
+TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+local TopBarCorner = Instance.new("UICorner")
+TopBarCorner.CornerRadius = UDim.new(0, 10)
+TopBarCorner.Parent = TopBar
+
+-- Fix Sudut Bawah TopBar
+local TopBarFix = Instance.new("Frame")
+TopBarFix.Size = UDim2.new(1, 0, 0, 10)
+TopBarFix.Position = UDim2.new(0, 0, 1, -10)
+TopBarFix.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+TopBarFix.BorderSizePixel = 0
+TopBarFix.Parent = TopBar
+
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(1, -80, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.Text = "🎃 Halloween Auto Farm"
+Title.TextColor3 = Color3.fromRGB(255, 140, 0) -- Oranye Halloween
+Title.TextSize = 14
+Title.Font = Enum.Font.SourceSansBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.BackgroundTransparency = 1
+Title.Parent = TopBar
+
+-- Button Close
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Name = "CloseBtn"
+CloseBtn.Size = UDim2.new(0, 30, 0, 25)
+CloseBtn.Position = UDim2.new(1, -32, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.Font = Enum.Font.SourceSansBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = TopBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseBtn
+
+-- Button Minimize
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Name = "MinimizeBtn"
+MinimizeBtn.Size = UDim2.new(0, 30, 0, 25)
+MinimizeBtn.Position = UDim2.new(1, -66, 0, 5)
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeBtn.Font = Enum.Font.SourceSansBold
+MinimizeBtn.TextSize = 16
+MinimizeBtn.Parent = TopBar
+
+local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(0, 6)
+MinCorner.Parent = MinimizeBtn
+
+-- // Content Container
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Size = UDim2.new(1, -20, 1, -45)
+ContentFrame.Position = UDim2.new(0, 10, 0, 40)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
+
+-- Toggle Button (Auto Sell & Buy)
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Size = UDim2.new(1, 0, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 0, 0, 10)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+ToggleBtn.Text = "Auto Sell & Buy: OFF"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.Font = Enum.Font.SourceSansBold
+ToggleBtn.TextSize = 16
+ToggleBtn.Parent = ContentFrame
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 8)
+ToggleCorner.Parent = ToggleBtn
+
+-- Status Label
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Name = "StatusLabel"
+StatusLabel.Size = UDim2.new(1, 0, 0, 30)
+StatusLabel.Position = UDim2.new(0, 0, 0, 65)
+StatusLabel.Text = "Status: Idle"
+StatusLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+StatusLabel.Font = Enum.Font.SourceSans
+StatusLabel.TextSize = 14
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Parent = ContentFrame
+
+-- // Functionality Logic
+local function runAutoProcess()
+    local buyArgs = {
+        "Halloween Candy Corn Carrot",
+        "Scary Seeds"
+    }
+    
+    while autoSellBuyEnabled do
+        -- 1. Fire Sell Remote
+        if SellRemote then
+            SellRemote:FireServer()
+            StatusLabel.Text = "Status: Selling Inventory..."
+        else
+            StatusLabel.Text = "Error: Sell Remote not found!"
+        end
+        
+        task.wait(0.5)
+        
+        -- 2. Fire Buy Remote
+        if BuyRemote then
+            BuyRemote:FireServer(unpack(buyArgs))
+            StatusLabel.Text = "Status: Buying Items..."
+        else
+            StatusLabel.Text = "Error: Buy Remote not found!"
+        end
+        
+        task.wait(1) -- Delay per loop (bisa disesuaikan)
+    end
+end
+
+-- Toggle Handler
+ToggleBtn.MouseButton1Click:Connect(function()
+    autoSellBuyEnabled = not autoSellBuyEnabled
+    
+    if autoSellBuyEnabled then
+        ToggleBtn.Text = "Auto Sell & Buy: ON"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 180, 80)
+        autoLoopThread = task.spawn(runAutoProcess)
+    else
+        ToggleBtn.Text = "Auto Sell & Buy: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+        StatusLabel.Text = "Status: Stopped"
+        if autoLoopThread then
+            task.cancel(autoLoopThread)
+            autoLoopThread = nil
+        end
+    end
+end)
+
+-- Minimize Functionality
+local isMinimized = false
+MinimizeBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        MainFrame:TweenSize(UDim2.new(0, 300, 0, 35), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.3, true)
+        MinimizeBtn.Text = "+"
+        ContentFrame.Visible = false
+    else
+        MainFrame:TweenSize(UDim2.new(0, 300, 0, 180), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.3, true)
+        MinimizeBtn.Text = "-"
+        task.wait(0.1)
+        ContentFrame.Visible = true
+    end
+end)
+
+-- Close Functionality
+CloseBtn.MouseButton1Click:Connect(function()
+    autoSellBuyEnabled = false
+    if autoLoopThread then
+        task.cancel(autoLoopThread)
+    end
+    ScreenGui:Destroy()
+end)
+
+-- // Dragging Mechanism
+local dragging, dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+TopBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
